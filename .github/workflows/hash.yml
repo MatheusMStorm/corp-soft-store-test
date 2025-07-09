@@ -1,0 +1,25 @@
+name: Fill manifest hash
+
+on:
+  push:
+    branches: [uploads]
+    paths: ["softwares/**/*.zip"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          ZIP=$(git diff --name-only ${{ github.sha }} | grep '.zip$')
+          for f in $ZIP; do
+            SIZE=$(stat -c%s "$f")
+            SHA=$(sha256sum "$f" | cut -d' ' -f1)
+            MANIFEST=$(dirname $(dirname "$f"))/manifest.json
+            jq "(.historicoVersoes[]|select(.caminhoZip==\"$f\")|.tamBytes) = $SIZE |
+                (.historicoVersoes[]|select(.caminhoZip==\"$f\")|.sha256) = \"$SHA\"" \
+              "$MANIFEST" > tmp && mv tmp "$MANIFEST"
+          done
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "ci: preenche hash/tamanho"
